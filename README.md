@@ -112,6 +112,25 @@ geo-tracker/
 └── results/          # JSONs con resultados por fecha (auto-generado)
 ```
 
+## Limitaciones y posibles mejoras
+
+Las respuestas de los modelos de IA son **no determinísticas**: una misma pregunta puede mencionar tu marca un día y no al siguiente, aunque el modelo tenga conocimiento de ella. El tracker mide si tu marca apareció en una respuesta específica en un momento dado — no si "existe" en el índice del motor.
+
+**Falsos negativos** (tu marca existe pero no aparece): ocurren cuando el modelo prioriza otras fuentes, cuando hay noticias recientes de competidores, o cuando la respuesta se trunca y tu marca quedó más abajo en la lista.
+
+**Falsos positivos** (detección incorrecta): poco probables, pero posibles si tu keyword matchea una palabra en otro idioma o contexto, o si Gemini incluye tu URL como fuente sin recomendarla en el texto.
+
+Lo que sí es confiable es la **tendencia a lo largo del tiempo**: si la tasa sube consistentemente de 3/24 a 15/24 semanas seguidas, eso refleja un cambio real en visibilidad.
+
+### Mejoras para reducir el ruido
+
+| Mejora | Cuándo aplicarla | Cómo implementarla |
+|---|---|---|
+| **Repetir cada pregunta N veces y tomar mayoría** | Si los resultados semanales son muy volátiles | Llamar cada engine 2-3 veces por pregunta y marcar mención solo si aparece en la mayoría |
+| **Fijar `temperature=0` en OpenAI** | Para maximizar determinismo en ChatGPT | Agregar `temperature=0` en `query_openai()` en `monitor.py` (Gemini con Search Grounding no lo soporta) |
+| **Ampliar el banco de preguntas** | Si querés más robustez estadística | Agregar más preguntas en `config.py`; con 30+ preguntas un falso negativo puntual impacta menos en la tasa |
+| **Guardar el texto completo de cada respuesta** | Para auditar manualmente los resultados | Cambiar `response_excerpt` (500 chars) por la respuesta completa en el JSON |
+
 ## Costos estimados
 
 | Motor | Costo por corrida | Costo anual |
