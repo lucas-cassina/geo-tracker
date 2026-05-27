@@ -1,41 +1,43 @@
 # geo-tracker
 
-Track how visible your brand is in AI-powered search engines. geo-tracker queries ChatGPT and Google Gemini weekly with a custom list of questions and records whether your brand appears in the responses — the equivalent of SEO rank tracking, but for Generative Engine Optimization (GEO).
+Monitorea semanalmente qué tan visible es tu marca en los motores de búsqueda con IA. geo-tracker le hace preguntas a **ChatGPT** y **Google Gemini** y registra si tu marca aparece en las respuestas — el equivalente al SEO tradicional, pero para búsquedas generadas por IA (GEO: Generative Engine Optimization).
 
-## How it works
+## Cómo funciona
 
-Every Monday at 9am, the script sends a configurable list of questions to **ChatGPT** (gpt-4o-search-preview) and **Google Gemini** (gemini-2.5-flash with Search Grounding). It checks each response for mentions of your brand name or domain, saves the results as JSON, and emails you an HTML report.
+Cada lunes a las 9am, el script envía una lista configurable de preguntas a ChatGPT (gpt-4o-search-preview) y Google Gemini (gemini-2.5-flash con Search Grounding). Detecta si alguna respuesta menciona tu marca, guarda los resultados en un JSON y te manda un reporte HTML por email.
 
-The report shows a ✅/❌ table per question and engine, a weekly visibility rate, and the trend vs. the previous week.
+El reporte muestra una tabla ✅/❌ por pregunta y motor, la tasa de visibilidad semanal y la variación respecto a la semana anterior.
 
-## Customization
+## Configuración
 
-**Changing the brand to track** — edit the `BRAND_KEYWORDS` list in `monitor.py`:
+Todo lo que necesitás personalizar está en **`config.py`**:
+
+**Marca a trackear** — editá `BRAND_KEYWORDS`:
 
 ```python
-BRAND_KEYWORDS = ["yourbrand", "yourbrand.com"]
+BRAND_KEYWORDS = ["tumarca", "tumarca.com"]
 ```
 
-**Changing the questions** — edit the `QUESTIONS` list in `monitor.py`:
+**Preguntas** — editá `QUESTIONS`:
 
 ```python
 QUESTIONS = [
-    "What are the best tools for X in Y?",
-    "Which platforms do professionals use for Z?",
-    ...
+    "¿Qué plataformas existen para X en Argentina?",
+    "¿Cuál es la mejor herramienta para Y?",
+    "What are the best tools for Z?",  # también funciona en inglés
 ]
 ```
 
-Questions can be in any language. Mix languages to cover different search audiences.
+Podés mezclar idiomas para cubrir distintas audiencias.
 
-## Requirements
+## Requisitos
 
 - Python 3.11+
-- [OpenAI API key](https://platform.openai.com/api-keys) (`sk-proj-...`)
-- [Google AI Studio API key](https://aistudio.google.com/apikey)
-- Gmail account with [App Password](https://myaccount.google.com/apppasswords) enabled (requires 2FA)
+- API key de [OpenAI](https://platform.openai.com/api-keys) (`sk-proj-...`)
+- API key de [Google AI Studio](https://aistudio.google.com/apikey)
+- Cuenta de Gmail con [App Password](https://myaccount.google.com/apppasswords) habilitado (requiere 2FA)
 
-## Installation
+## Instalación
 
 ```bash
 git clone https://github.com/lucas-cassina/geo-tracker.git
@@ -46,67 +48,68 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 cp .env.example .env
-# Fill in your API keys and email in .env
+# Completar .env con las API keys y datos de email
 ```
 
-### Environment variables (`.env`)
+### Variables de entorno (`.env`)
 
 ```
 OPENAI_API_KEY=sk-proj-...
 GEMINI_API_KEY=AI...
 
-EMAIL_FROM=you@gmail.com
-EMAIL_TO=you@email.com
+EMAIL_FROM=tu@gmail.com
+EMAIL_TO=tu@email.com
 GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
 ```
 
-> Gmail App Passwords are generated at [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords). This is not your regular Gmail password.
+> El App Password de Gmail se genera en [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords). No es la contraseña normal de la cuenta.
 
-## Usage
+## Uso
 
-### Test run (2 questions, no email)
+### Probar (2 preguntas, sin email)
 
 ```bash
 source .venv/bin/activate
 python3 monitor.py --test
 ```
 
-### Full run (all questions + email report)
+### Corrida completa (todas las preguntas + email)
 
 ```bash
 source .venv/bin/activate
 python3 monitor.py
 ```
 
-Results are saved to `results/YYYY-MM-DD.json`.
+Los resultados se guardan en `results/YYYY-MM-DD.json`.
 
-### Schedule weekly runs (every Monday at 9am)
+### Activar ejecución semanal automática
 
 ```bash
 bash setup.sh
 ```
 
-This installs dependencies and registers a cron job. To verify it's active:
+Registra un cron que corre el monitor cada **lunes a las 9:00 AM**. Para verificar:
 
 ```bash
 crontab -l | grep geo-tracker
 ```
 
-## Project structure
+## Estructura del proyecto
 
 ```
 geo-tracker/
-├── monitor.py        # Main script — edit QUESTIONS and BRAND_KEYWORDS here
-├── requirements.txt  # Python dependencies
-├── setup.sh          # Install + register cron job
-├── .env.example      # Environment variable template
-└── results/          # Weekly JSON results (auto-created)
+├── config.py         # ← Editá aquí: marca a trackear y preguntas
+├── monitor.py        # Lógica principal (APIs, detección, email)
+├── requirements.txt  # Dependencias Python
+├── setup.sh          # Instalación + registro de cron
+├── .env.example      # Template de variables de entorno
+└── results/          # JSONs con resultados por fecha (auto-generado)
 ```
 
-## Estimated costs
+## Costos estimados
 
-| Engine | Cost per run | Cost per year |
+| Motor | Costo por corrida | Costo anual |
 |---|---|---|
-| OpenAI (gpt-4o-search-preview) | ~$0.31 | ~$16 |
-| Google Gemini (gemini-2.5-flash) | $0 (free tier) | $0 |
-| **Total** | **~$0.31/week** | **~$16/year** |
+| OpenAI (gpt-4o-search-preview) | ~$0,31 | ~$16 |
+| Google Gemini (gemini-2.5-flash) | $0 (tier gratuito) | $0 |
+| **Total** | **~$0,31/semana** | **~$16/año** |

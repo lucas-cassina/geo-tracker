@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-Polko AI Visibility Monitor
-Detecta semanalmente si "Polko" aparece en respuestas de motores de búsqueda con IA.
+geo-tracker — Monitor de Visibilidad en Motores de Búsqueda con IA
+Detecta semanalmente si tu marca aparece en respuestas de ChatGPT y Google Gemini.
 """
 
+import email.utils
 import json
 import os
 import re
@@ -17,30 +18,9 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from config import BRAND_KEYWORDS, QUESTIONS
+
 load_dotenv()
-
-# ---------------------------------------------------------------------------
-# Preguntas clave sobre el mercado de seguros en Argentina
-# ---------------------------------------------------------------------------
-
-QUESTIONS = [
-    # Español — mercado primario
-    "¿Qué plataformas digitales existen para productores de seguros en Argentina?",
-    "¿Cuál es el mejor multicotizador de seguros para productores en Argentina?",
-    "¿Qué herramientas InsurTech están disponibles para agentes de seguros en Argentina?",
-    "¿Cómo puede un productor de seguros comparar precios de múltiples aseguradoras online?",
-    "¿Qué plataformas permiten emitir pólizas de seguro automotor online en Argentina?",
-    "¿Qué startups de InsurTech están transformando los seguros en Córdoba, Argentina?",
-    "¿Qué alternativas digitales tienen los productores de seguros para gestionar su cartera?",
-    "¿Cuáles son las mejores plataformas para cotizar seguros de autos en Argentina?",
-    "¿Qué tecnología usan los productores de seguros modernos en Argentina?",
-    "¿Cómo se digitalizó la distribución de seguros en Argentina?",
-    # English — cobertura internacional
-    "What are the best InsurTech platforms for insurance producers in Argentina?",
-    "What digital tools exist for insurance brokers in Argentina?",
-]
-
-BRAND_KEYWORDS = ["polko", "polko.com.ar"]
 
 
 # ---------------------------------------------------------------------------
@@ -48,7 +28,7 @@ BRAND_KEYWORDS = ["polko", "polko.com.ar"]
 # ---------------------------------------------------------------------------
 
 def check_mention(text: str, sources: list[str] | None = None) -> dict:
-    """Retorna si 'Polko' aparece en el texto o en las fuentes."""
+    """Retorna si alguna keyword de la marca aparece en el texto o en las fuentes."""
     text_lower = text.lower() if text else ""
     mentioned_in_text = any(kw in text_lower for kw in BRAND_KEYWORDS)
 
@@ -93,18 +73,18 @@ def query_openai(question: str) -> dict:
 
     try:
         client = openai.OpenAI(api_key=api_key)
-        # gpt-4o-search-preview no acepta max_tokens — se omite el parámetro
+        # gpt-4o-search-preview no acepta role "system" ni max_tokens
         response = client.chat.completions.create(
             model="gpt-4o-search-preview",
             messages=[
                 {
-                    "role": "system",
+                    "role": "user",
                     "content": (
                         "Busca información actualizada en internet y responde con detalle, "
-                        "mencionando plataformas y herramientas concretas disponibles hoy."
+                        "mencionando plataformas y herramientas concretas disponibles hoy. "
+                        f"Pregunta: {question}"
                     ),
-                },
-                {"role": "user", "content": question},
+                }
             ],
         )
         text = response.choices[0].message.content or ""
@@ -196,7 +176,6 @@ def run_monitoring(questions: list[str], verbose: bool = False) -> dict:
     if verbose:
         print(f"   Ejecutando {len(questions)} preguntas × {len(ENGINE_RUNNERS)} motores en paralelo...")
 
-    # Paralelizar por pregunta (cada pregunta ya paraleliza sus motores internamente)
     results = []
     with ThreadPoolExecutor(max_workers=len(questions)) as pool:
         futures = {pool.submit(_run_question, q): q for q in questions}
@@ -213,7 +192,7 @@ def run_monitoring(questions: list[str], verbose: bool = False) -> dict:
                     else:
                         print(f"  ❌ [{engine}] {q_short}...")
 
-    # Reordenar según el orden original de QUESTIONS para consistencia
+    # Restaurar el orden original de QUESTIONS para consistencia en el reporte
     order = {q: i for i, q in enumerate(questions)}
     results.sort(key=lambda r: order.get(r["question"], 999))
 
@@ -254,7 +233,6 @@ def load_previous_results() -> dict | None:
     cutoff = date.today() - timedelta(days=6)
     files = sorted(results_dir.glob("*.json"), reverse=True)
     for f in files:
-        # Extraer la fecha del nombre de archivo (YYYY-MM-DD*.json)
         try:
             file_date = date.fromisoformat(f.stem[:10])
         except ValueError:
@@ -319,7 +297,7 @@ def build_html_report(data: dict, previous: dict | None) -> str:
 <html>
 <head><meta charset="utf-8"></head>
 <body style="font-family:Arial,sans-serif;color:#333;max-width:860px;margin:40px auto;">
-  <h1 style="color:#1a1a2e;">Polko — Monitor de Visibilidad en IA</h1>
+  <h1 style="color:#1a1a2e;">geo-tracker — Monitor de Visibilidad en IA</h1>
   <p style="color:#666;margin-top:-12px;">Reporte del {data['date']}</p>
 
   <table style="border-collapse:collapse;margin-bottom:24px;">
@@ -347,15 +325,14 @@ def build_html_report(data: dict, previous: dict | None) -> str:
     <tbody>{rows}</tbody>
   </table>
 
-  <p style="color:#aaa;font-size:11px;margin-top:28px;">Generado por polko-ai-monitor</p>
+  <p style="color:#aaa;font-size:11px;margin-top:28px;">Generado por geo-tracker</p>
 </body>
 </html>"""
 
 
-def _parse_email_address(value: str) -> str:
-    """Extrae la dirección bare de un string tipo 'Nombre <email@x.com>'."""
-    match = re.search(r"<([^>]+)>", value)
-    return match.group(1).strip() if match else value.strip()
+def _parse_recipients(value: str) -> list[str]:
+    """Parsea EMAIL_TO soportando múltiples destinatarios y display names con comas."""
+    return [addr for _, addr in email.utils.getaddresses([value]) if addr]
 
 
 def send_email_report(data: dict, previous: dict | None) -> None:
@@ -372,16 +349,16 @@ def send_email_report(data: dict, previous: dict | None) -> None:
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = (
-        f"Polko AI Monitor — {data['date']} — "
+        f"geo-tracker — {data['date']} — "
         f"{summary['polko_mentioned']}/{summary['total_queries']} menciones ({summary['mention_rate']})"
     )
     msg["From"] = email_from
     msg["To"] = email_to
     msg.attach(MIMEText(html, "html", "utf-8"))
 
-    # Extraer dirección bare para login y recipients (soporta display names y listas)
-    login_address = _parse_email_address(email_from)
-    recipients = [_parse_email_address(addr) for addr in email_to.split(",")]
+    # Extraer dirección bare para login (soporta display names)
+    _, login_address = email.utils.parseaddr(email_from)
+    recipients = _parse_recipients(email_to)
 
     try:
         with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
@@ -408,7 +385,7 @@ def main():
     if test_mode:
         print("🧪 Modo test — usando 2 preguntas, sin enviar email.")
 
-    print(f"🔍 Polko AI Monitor — {date.today().isoformat()}")
+    print(f"🔍 geo-tracker — {date.today().isoformat()}")
     print(f"   Preguntas: {len(questions)} | Motores: {len(ENGINE_RUNNERS)}")
 
     data = run_monitoring(questions, verbose=True)
