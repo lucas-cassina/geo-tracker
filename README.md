@@ -6,7 +6,9 @@ Monitorea semanalmente qué tan visible es tu marca en los motores de búsqueda 
 
 Cada lunes a las 9am, el script envía una lista configurable de preguntas a ChatGPT (gpt-4o-search-preview) y Google Gemini (gemini-2.5-flash con Search Grounding). Detecta si alguna respuesta menciona tu marca, guarda los resultados en un JSON y te manda un reporte HTML por email.
 
-El reporte muestra una tabla ✅/❌ por pregunta y motor, la tasa de visibilidad semanal y la variación respecto a la semana anterior.
+El reporte muestra una tabla ✅/❌ por pregunta y motor y la tasa de visibilidad semanal. A partir de la segunda semana de uso, también muestra la variación respecto a la semana anterior (▲/▼).
+
+![Ejemplo de reporte](docs/reporte-ejemplo.png)
 
 ## Configuración
 
