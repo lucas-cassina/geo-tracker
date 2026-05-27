@@ -10,6 +10,7 @@ import os
 import re
 import smtplib
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta
 from email.mime.multipart import MIMEMultipart
@@ -96,7 +97,7 @@ def query_openai(question: str) -> dict:
 
 
 def query_gemini(question: str) -> dict:
-    """Consulta Google Gemini con Search Grounding."""
+    """Consulta Google Gemini con Search Grounding. Reintenta ante rate limiting (429)."""
     from google import genai
     from google.genai import types
 
@@ -104,46 +105,56 @@ def query_gemini(question: str) -> dict:
     if not api_key:
         return {"error": "GEMINI_API_KEY no configurada", "mentioned": False}
 
-    try:
-        client = genai.Client(api_key=api_key)
-        prompt = (
-            "Busca información actualizada en internet y responde con detalle, "
-            "mencionando plataformas y herramientas concretas disponibles hoy. "
-            f"Pregunta: {question}"
-        )
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                tools=[types.Tool(google_search=types.GoogleSearch())],
-            ),
-        )
+    client = genai.Client(api_key=api_key)
+    prompt = (
+        "Busca información actualizada en internet y responde con detalle, "
+        "mencionando plataformas y herramientas concretas disponibles hoy. "
+        f"Pregunta: {question}"
+    )
 
-        # response.text lanza ValueError en respuestas bloqueadas por safety filters
+    last_exc = None
+    for attempt in range(4):
+        if attempt > 0:
+            time.sleep(2 ** attempt)  # 2s, 4s, 8s
         try:
-            text = response.text or ""
-        except ValueError:
-            text = ""
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    tools=[types.Tool(google_search=types.GoogleSearch())],
+                ),
+            )
 
-        # Extraer URLs de grounding metadata
-        sources = []
-        try:
-            for candidate in response.candidates:
-                gm = getattr(candidate, "grounding_metadata", None)
-                if gm:
-                    for chunk in getattr(gm, "grounding_chunks", []):
-                        web = getattr(chunk, "web", None)
-                        if web and getattr(web, "uri", None):
-                            sources.append(web.uri)
-        except Exception:
-            pass
+            # response.text lanza ValueError en respuestas bloqueadas por safety filters
+            try:
+                text = response.text or ""
+            except ValueError:
+                text = ""
 
-        result = check_mention(text, sources)
-        result["response_excerpt"] = text[:500]
-        result["sources"] = sources[:5]
-        return result
-    except Exception as exc:
-        return {"error": str(exc), "mentioned": False}
+            # Extraer URLs de grounding metadata
+            sources = []
+            try:
+                for candidate in response.candidates:
+                    gm = getattr(candidate, "grounding_metadata", None)
+                    if gm:
+                        for chunk in getattr(gm, "grounding_chunks", []):
+                            web = getattr(chunk, "web", None)
+                            if web and getattr(web, "uri", None):
+                                sources.append(web.uri)
+            except Exception:
+                pass
+
+            result = check_mention(text, sources)
+            result["response_excerpt"] = text[:500]
+            result["sources"] = sources[:5]
+            return result
+
+        except Exception as exc:
+            last_exc = exc
+            if "429" not in str(exc):
+                break  # Solo reintenta en rate limiting
+
+    return {"error": str(last_exc), "mentioned": False}
 
 
 # ---------------------------------------------------------------------------

@@ -110,6 +110,6 @@ geo-tracker/
 
 | Motor | Costo por corrida | Costo anual |
 |---|---|---|
-| OpenAI (gpt-4o-search-preview) | ~$0,31 | ~$16 |
+| OpenAI (gpt-4o-search-preview) | ~$0,05 por pregunta (~$0,60 con 12 preguntas) | ~$31 |
 | Google Gemini (gemini-2.5-flash) | $0 (tier gratuito) | $0 |
-| **Total** | **~$0,31/semana** | **~$16/año** |
+| **Total** | **~$0,60/semana** | **~$31/año** |
