@@ -62,6 +62,12 @@ EMAIL_TO=tu@email.com
 GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
 ```
 
+Para enviar el reporte a **múltiples destinatarios**, separá las direcciones con coma en `EMAIL_TO`:
+
+```
+EMAIL_TO=uno@email.com,dos@email.com,tres@email.com
+```
+
 > El App Password de Gmail se genera en [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords). No es la contraseña normal de la cuenta.
 
 ## Uso
